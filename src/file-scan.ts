@@ -1,5 +1,5 @@
 import type { Dirent } from 'node:fs'
-import type { FileEntry, Manifest, ScriptEntry } from './types'
+import type { FileEntry, Manifest, ScriptEntry, WidgetMeta } from './types'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { config } from './config'
@@ -9,7 +9,7 @@ export async function createManifest(): Promise<Manifest> {
 
   return {
     updatedAt: new Date().toISOString(),
-    scripts: scriptPaths.map(toScriptEntry),
+    scripts: await Promise.all(scriptPaths.map(toScriptEntry)),
     assets: await listRecursiveNames(config.paths.builtWidgets, config.files.assetExtensions),
   }
 }
@@ -38,14 +38,39 @@ export async function resolveSyncFile(name: string): Promise<FileEntry | undefin
   return undefined
 }
 
-function toScriptEntry(scriptPath: string): ScriptEntry {
+async function toScriptEntry(scriptPath: string): Promise<ScriptEntry> {
   const dir = path.posix.dirname(scriptPath)
-  const base = path.posix.basename(dir === '.' ? scriptPath : dir)
+  const widgetDir = path.posix.basename(dir === '.' ? scriptPath : dir)
+  const meta = await readWidgetMeta(widgetDir)
 
   return {
-    name: `${base}.js`,
+    name: `${widgetDir}.js`,
+    alias: meta.alias?.trim() || widgetDir,
+    description: meta.description?.trim() || undefined,
     path: scriptPath,
   }
+}
+
+async function readWidgetMeta(widgetDir: string): Promise<WidgetMeta> {
+  const metaPath = path.join(config.paths.sourceWidgets, widgetDir, 'meta.json')
+
+  try {
+    const value: unknown = JSON.parse(await fs.readFile(metaPath, 'utf8'))
+    if (!isRecord(value))
+      return {}
+
+    return {
+      alias: typeof value.alias === 'string' ? value.alias : undefined,
+      description: typeof value.description === 'string' ? value.description : undefined,
+    }
+  }
+  catch {
+    return {}
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 async function listRecursiveNames(dir: string, extensions: Set<string>): Promise<string[]> {

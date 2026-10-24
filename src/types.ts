@@ -12,5 +12,12 @@ export interface FileEntry {
 
 export interface ScriptEntry {
   name: string
+  alias: string
+  description?: string
   path: string
+}
+
+export interface WidgetMeta {
+  alias?: string
+  description?: string
 }

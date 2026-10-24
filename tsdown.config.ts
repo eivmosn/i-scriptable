@@ -52,7 +52,7 @@ const configs: UserConfig[] = [
   {
     ...jsOutput,
     entry: {
-      client: 'src/client.ts',
+      sync: 'src/sync.ts',
     },
     outDir: 'dist',
     platform: 'browser',
